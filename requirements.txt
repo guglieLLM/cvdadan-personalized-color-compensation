@@ -1,0 +1,46 @@
+# ============================================================================
+# CVD Chromatic Compensation — Dipendenze
+# ============================================================================
+#
+# Installazione:
+#   1. Creare ambiente conda:
+#        conda create -n cvd python=3.11 -y
+#        conda activate cvd
+#
+#   2. Installare PyTorch con supporto CUDA 12.8:
+#        pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#
+#   3. Installare le dipendenze rimanenti:
+#        pip install -r requirements.txt
+#
+# ============================================================================
+
+# --- Core ---
+numpy>=1.24
+pillow>=9.0
+pyyaml>=6.0
+tqdm>=4.60
+matplotlib>=3.7
+
+# --- Deep Learning ---
+# torch e torchvision NON sono elencati qui: vanno installati PRIMA
+# con il corretto indice CUDA (vedi istruzioni sopra).
+# Versione di riferimento: torch==2.7.0+cu128, torchvision==0.22.0+cu128
+timm>=0.9
+torchmetrics>=1.0
+pytorch-msssim>=1.0
+
+# --- Color Science ---
+colour-science>=0.4
+
+# --- Dataset Generation (Teacher Farup) ---
+scipy>=1.10
+
+# --- GUI: Farnsworth-Munsell 100 Hue Test (opzionale) ---
+# Decommentare se si vuole usare FM_TEST.py:
+# PyQt5>=5.15
+
+# --- GUI: Inference (z__inference_gui.py) ---
+# tkinter è incluso nella distribuzione standard di Python.
+# Se manca: sudo apt-get install python3-tk  (Linux)
+#            oppure reinstallare Python con l'opzione "tcl/tk" (Windows)

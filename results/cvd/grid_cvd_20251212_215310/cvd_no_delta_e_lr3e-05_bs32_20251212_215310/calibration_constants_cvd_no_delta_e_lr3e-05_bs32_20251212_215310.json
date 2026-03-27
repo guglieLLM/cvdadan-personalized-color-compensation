@@ -1,0 +1,10 @@
+{
+  "M_mse": 477.74312918526783,
+  "M_delta_e": 1.0,
+  "M_ssim": 0.4319766504423959,
+  "samples_used": 224,
+  "lambda_mse": 0.7,
+  "lambda_delta_e": 0.0,
+  "lambda_ssim": 0.3,
+  "timestamp": "2025-12-17T13:53:47.477379"
+}

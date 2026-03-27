@@ -1,0 +1,47 @@
+# === Data (too large for git) ===
+dataset/
+dataset_test/
+logs/
+build_tmp/
+
+# === Results: solo best checkpoint + config + calibration ===
+results/cvd/grid_cvd_20251212_215310/cvd_balanced_lr3e-05_bs32_20251212_215310/
+results/cvd/grid_cvd_20251212_215310/cvd_conservative_lr2e-05_bs24_20251212_215310/
+results/cvd/grid_cvd_20251212_215310/cvd_perceptual_lr5e-05_bs32_20251212_215310/
+results/cvd/grid_cvd_20251212_215310/cvd_no_delta_e_lr3e-05_bs32_20251212_215310/checkpoints/*_cvd_ep0186.pth
+results/cvd/grid_cvd_20251212_215310/cvd_no_delta_e_lr3e-05_bs32_20251212_215310/checkpoints/*_cvd_final.pth
+results/cvd/grid_cvd_20251212_215310/cvd_no_delta_e_lr3e-05_bs32_20251212_215310/nan_debug_*.log
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+.conda/
+
+# === LaTeX artifacts ===
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+
+# === IDE / Editor ===
+.vscode/
+*.code-workspace
+
+# === Temp / Build ===
+_pptx_diff_tmp/
+
+# === Presentations ===
+*.pptx
+
+# === Archived non-project files ===
+Z_____ALTRO/
+
+# === External repo cache ===
+variational-anisotropic-gradient-domain-main/__pycache__/
