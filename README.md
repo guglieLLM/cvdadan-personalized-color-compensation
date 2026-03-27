@@ -5,83 +5,85 @@
 ![CUDA](https://img.shields.io/badge/CUDA-12.x-76b900?logo=nvidia&logoColor=white)
 ![License](https://img.shields.io/badge/License-GPLv3-blue)
 
-Sistema di compensazione cromatica in tempo reale per utenti con **deficit della visione dei colori** (CVD — Color Vision Deficiency), basato su deep learning con condizionamento adattivo (CVD-AdaIN).
+🇬🇧 English | [🇮🇹 Italiano](README.it.md)
 
-> **Tesi di Laurea Magistrale in Ingegneria Informatica** — Università degli Studi di Palermo
+Real-time chromatic compensation system for users with **Color Vision Deficiency** (CVD), based on deep learning with adaptive conditioning (CVD-AdaIN).
+
+> **Master's Thesis in Computer Engineering** — University of Palermo
 
 ---
 
-## Indice
+## Table of Contents
 
-1. [Panoramica](#panoramica)
-2. [Background Teorico](#background-teorico)
-3. [Architettura del Modello](#architettura-del-modello)
-4. [Struttura del Progetto](#struttura-del-progetto)
-5. [Installazione](#installazione)
-6. [Generazione Dataset](#generazione-dataset)
+1. [Overview](#overview)
+2. [Theoretical Background](#theoretical-background)
+3. [Model Architecture](#model-architecture)
+4. [Project Structure](#project-structure)
+5. [Installation](#installation)
+6. [Dataset Generation](#dataset-generation)
 7. [Training](#training)
-8. [Inferenza](#inferenza)
-9. [Risultati](#risultati)
-10. [Licenza](#licenza)
+8. [Inference](#inference)
+9. [Results](#results)
+10. [License](#license)
 
 ---
 
-## Panoramica
+## Overview
 
-Il progetto implementa una pipeline end-to-end per:
+This project implements an end-to-end pipeline for:
 
-1. **Profilazione utente** — Test Farnsworth-Munsell 100 Hue per caratterizzare il tipo e la severità del CVD in un vettore 3D `[θ, C, S]`
-2. **Generazione dataset** — Compensazione ottimale offline con l'algoritmo Teacher di Farup (variazionale anisotropo nel dominio dei gradienti)
-3. **Training** — Rete neurale condizionata dal profilo CVD che apprende a replicare il Teacher in tempo reale
-4. **Inferenza** — Compensazione single-image in ~45 ms su GPU (GUI Tkinter o CLI)
+1. **User profiling** — Farnsworth-Munsell 100 Hue Test to characterize CVD type and severity into a 3D vector `[θ, C, S]`
+2. **Dataset generation** — Optimal offline compensation via Farup's Teacher algorithm (anisotropic variational in gradient domain)
+3. **Training** — CVD profile-conditioned neural network that learns to replicate the Teacher in real time
+4. **Inference** — Single-image compensation in ~45 ms on GPU (Tkinter GUI or CLI)
 
-Il modello riceve un'immagine RGB e il profilo CVD dell'utente, e restituisce l'immagine compensata preservando la luma Y' originale (Y'-preserving in spazio YCbCr BT.601).
+The model receives an RGB image and the user's CVD profile, and returns the compensated image while preserving the original Y' luma (Y'-preserving in YCbCr BT.601 space).
 
 ---
 
-## Background Teorico
+## Theoretical Background
 
-### Deficit della Visione dei Colori (CVD)
+### Color Vision Deficiency (CVD)
 
-Il CVD colpisce circa l'8% della popolazione maschile e lo 0.5% di quella femminile. Si classifica in:
+CVD affects approximately 8% of the male population and 0.5% of the female population. It is classified as:
 
-| Tipo | Cono affetto | Asse confusione |
-|------|-------------|----------------|
-| **Protanopia/Protanomalia** | L (long, rosso) | Rosso-verde |
-| **Deuteranopia/Deuteranomalia** | M (medium, verde) | Rosso-verde |
-| **Tritanopia/Tritanomalia** | S (short, blu) | Blu-giallo |
+| Type | Affected cone | Confusion axis |
+|------|--------------|----------------|
+| **Protanopia/Protanomaly** | L (long, red) | Red-green |
+| **Deuteranopia/Deuteranomaly** | M (medium, green) | Red-green |
+| **Tritanopia/Tritanomaly** | S (short, blue) | Blue-yellow |
 
-La severità varia da lieve (anomalia) a totale (anopia). La simulazione del CVD avviene tramite le **matrici di Machado et al. (2009)**, che modellano la riduzione di sensibilità spettrale dei coni come una trasformazione lineare nello spazio RGB parametrizzata dalla severità.
+Severity ranges from mild (anomaly) to total (anopia). CVD simulation uses **Machado et al. (2009) matrices**, which model the reduction in cone spectral sensitivity as a severity-parameterized linear transformation in RGB space.
 
-### Profilo CVD: vettore `[θ, C, S]`
+### CVD Profile: vector `[θ, C, S]`
 
-Il profilo individuale viene estratto dal **Farnsworth-Munsell 100 Hue Test** tramite lo scoring quantitativo Vingrys–King-Smith e codificato come:
+The individual profile is extracted from the **Farnsworth-Munsell 100 Hue Test** via Vingrys–King-Smith quantitative scoring and encoded as:
 
 <p align="center">
-  <img src="assets/fm100_gui.png" alt="Interfaccia GUI del Farnsworth-Munsell 100 Hue Test" width="550">
+  <img src="assets/fm100_gui.png" alt="Farnsworth-Munsell 100 Hue Test GUI" width="550">
 </p>
 
-- **θ (theta)** — Angolo dell'asse di confusione nel piano cromatico CIELUV $(u^*,v^*)$ (in gradi). Indica la direzione dominante del pattern di errore: consente di distinguere profili di tipo protan, deutan o tritan
-- **C (Confusion index)** — Indice di confusione: misura l'ampiezza complessiva dell'errore (severità globale)
-- **S (Scatter index)** — Indice di dispersione: misura la selettività e la direzionalità del pattern di errore
+- **θ (theta)** — Confusion axis angle in the CIELUV $(u^*,v^*)$ chromaticity plane (in degrees). Indicates the dominant direction of the error pattern: distinguishes protan, deutan, and tritan profiles
+- **C (Confusion index)** — Measures the overall magnitude of the error (global severity)
+- **S (Scatter index)** — Measures the selectivity and directionality of the error pattern
 
-### Algoritmo Teacher: Farup (variazionale anisotropo)
+### Teacher Algorithm: Farup (anisotropic variational)
 
-Il gold standard per la compensazione offline utilizza l'algoritmo di Farup, che opera in **RGB lineare** nel dominio dei gradienti:
-- Dal profilo CVD si ricava una base cromatica ortonormale $(e_\ell, e_d, e_c)$ in RGB lineare, dove $e_d$ è la direzione di confusione e $e_c$ la direzione di massima visibilità
-- Si costruisce un campo di gradienti target $\mathbf{G} = \nabla u_0 + (\nabla u_0 \cdot e_d)\, e_c$, che reindirizza le componenti di contrasto dalla direzione "cieca" verso quella "visibile"
-- Un solver variazionale anisotropo (GDIP) ricostruisce l'immagine compensata minimizzando lo scarto dal campo target, con regolarizzazione che preserva i bordi
+The gold standard for offline compensation uses Farup's algorithm, operating in **linear RGB** in the gradient domain:
+- From the CVD profile, an orthonormal chromatic basis $(e_\ell, e_d, e_c)$ is derived in linear RGB, where $e_d$ is the confusion direction and $e_c$ the direction of maximum visibility
+- A target gradient field $\mathbf{G} = \nabla u_0 + (\nabla u_0 \cdot e_d)\, e_c$ is constructed, redirecting contrast components from the "blind" direction to the "visible" one
+- An anisotropic variational solver (GDIP) reconstructs the compensated image by minimizing the deviation from the target field, with edge-preserving regularization
 
-**Limite**: il Teacher impiega secondi-minuti per immagine → non utilizzabile in tempo reale. La rete neurale viene addestrata per replicarne il risultato in millisecondi.
+**Limitation**: the Teacher takes seconds to minutes per image → not usable in real time. The neural network is trained to replicate its output in milliseconds.
 
 ---
 
-## Architettura del Modello
+## Model Architecture
 
-> Per tutte le opzioni architetturali disponibili ma non utilizzate, vedere [ARCHITECTURE_OPTIONS.md](ARCHITECTURE_OPTIONS.md).
+> For all available but unused architectural options, see [ARCHITECTURE_OPTIONS.md](ARCHITECTURE_OPTIONS.md).
 
 <p align="center">
-  <img src="assets/architecture.png" alt="Architettura completa del modello" width="750">
+  <img src="assets/architecture.png" alt="Full model architecture" width="750">
 </p>
 
 ### `CVDCompensationModelAdaIN`
@@ -91,159 +93,159 @@ Image [B, 3, 256, 256]   +   CVD Profile [B, 3]
          ↓                          ↓
 ┌─────────────────────────────────────────────────┐
 │       ENCODER (ConvNeXt-Tiny, ImageNet-1k)      │
-│  CVDAdaIN in 17 punti (15 blocchi + 2 downsa.)  │
-│  Stem congelato, resto fine-tuned (lr dedicato) │
+│  CVDAdaIN at 17 points (15 blocks + 2 downsa.)  │
+│  Stem frozen, rest fine-tuned (dedicated lr)     │
 └──────────────────┬──────────────────────────────┘
                    ↓
           Latent [B, 384, 16, 16]
                    ↓
 ┌─────────────────────────────────────────────────┐
 │       DECODER PLCF (9 CVDAdaIN + tanh head)     │
-│  Upsampling progressivo nearest-neighbor        │
+│  Progressive nearest-neighbor upsampling         │
 └──────────────────┬──────────────────────────────┘
                    ↓
            ΔCbCr [B, 2, 256, 256]
                    ↓
 ┌─────────────────────────────────────────────────┐
 │           Y'-PRESERVING OUTPUT                  │
-│  Y'_out = Y'_in       (luma BT.601 copiata)    │
+│  Y'_out = Y'_in       (BT.601 luma copied)     │
 │  Cb_out = Cb_in + ΔCb × 0.9                    │
 │  Cr_out = Cr_in + ΔCr × 0.9                    │
 └─────────────────────────────────────────────────┘
 ```
 
-**CVDAdaIN** (CVD Adaptive Normalization): il profilo CVD 3D viene proiettato da un Linear layer in parametri `(γ, β)` che modulano le normalizzazioni nell'encoder (17 punti, tipo LayerNorm) e nel decoder (9 punti, tipo Instance Norm). La proiezione è inizializzata near-identity (γ≈1, β≈0) così che il condizionamento emerga gradualmente durante il training. La rete si adatta dinamicamente al tipo e alla severità del deficit di ciascun utente.
+**CVDAdaIN** (CVD Adaptive Normalization): the 3D CVD profile is projected by a Linear layer into `(γ, β)` parameters that modulate normalizations in the encoder (17 points, LayerNorm type) and decoder (9 points, Instance Norm type). The projection is initialized near-identity (γ≈1, β≈0) so that conditioning emerges gradually during training. The network dynamically adapts to each user's deficiency type and severity.
 
 <p align="center">
-  <img src="assets/decoder_detail.png" alt="Architettura dettagliata del decoder PLCF" width="650">
+  <img src="assets/decoder_detail.png" alt="Detailed PLCF decoder architecture" width="650">
 </p>
 
-**Y'-Preserving**: il decoder produce solo 2 canali (ΔCb, ΔCr). La luma Y' (BT.601) dell'input viene copiata immutata nell'output, limitando variazioni di brightness nel dominio immagine. Nota: Y' è una grandezza operativa (luma), distinta dalla luminanza colorimetrica CIE Y e dalla lightness percettiva L*.
+**Y'-Preserving**: the decoder outputs only 2 channels (ΔCb, ΔCr). The input Y' luma (BT.601) is copied unchanged to the output, limiting brightness variations in the image domain. Note: Y' is an operational quantity (luma), distinct from CIE colorimetric luminance Y and perceptual lightness L*.
 
-### Normalizzazione del profilo CVD
+### CVD Profile Normalization
 
-Il profilo `[θ, C, S]` viene normalizzato con strategia **ibrida**:
-- **θ**: normalizzazione **globale** — preserva la distinzione tra tipi CVD
-- **C, S**: normalizzazione **per-tipo CVD** — gestisce le distribuzioni diverse di severità per Protan/Deutan/Tritan
+The `[θ, C, S]` profile is normalized with a **hybrid** strategy:
+- **θ**: **global** normalization — preserves the distinction between CVD types
+- **C, S**: **per-CVD-type** normalization — handles the different severity distributions for Protan/Deutan/Tritan
 
-Le statistiche sono salvate nel checkpoint e applicate automaticamente in inferenza.
+Statistics are saved in the checkpoint and automatically applied at inference.
 
-### Funzione di Loss
+### Loss Function
 
-Loss a 2 componenti con normalizzazione statica tramite costanti di calibrazione:
+Two-component loss with static normalization via calibration constants:
 
 $$\mathcal{L} = 0.7 \cdot \frac{\text{MSE}_{a^{*}b^{*}}}{M_{\text{mse}}} + 0.3 \cdot \frac{(1 - \text{MS-SSIM}_{\text{RGB}})}{M_{\text{ssim}}}$$
 
-| Componente | Spazio | Peso | Descrizione |
-|------------|--------|------|-------------|
-| MSE a\*b\* | CIELAB | 0.7 | Errore crominanza nei canali percettivi a\*, b\* |
-| MS-SSIM | sRGB | 0.3 | Preservazione della struttura multi-scala |
+| Component | Space | Weight | Description |
+|-----------|-------|--------|-------------|
+| MSE a\*b\* | CIELAB | 0.7 | Chrominance error in perceptual a\*, b\* channels |
+| MS-SSIM | sRGB | 0.3 | Multi-scale structural preservation |
 
-Le costanti $M$ vengono calibrate automaticamente sui primi ~200 campioni di training e salvate in `calibration_constants_*.json`. La ΔE2000 (CIEDE2000) viene calcolata come **metrica di validazione** ma non è inclusa nella loss.
+The $M$ constants are automatically calibrated on the first ~200 training samples and saved in `calibration_constants_*.json`. ΔE2000 (CIEDE2000) is computed as a **validation metric** but is not included in the loss.
 
 ---
 
-## Struttura del Progetto
+## Project Structure
 
 ```
 .
-├── z__pipeline.py                # Menu interattivo CLI: Dataset → Training → Inference
-├── z__inference_gui.py           # GUI Tkinter compensazione immagine singola
-├── inference_core.py             # Modulo condiviso di inferenza
-├── train.py                      # Script di training (--config <yaml>)
+├── z__pipeline.py                # Interactive CLI menu: Dataset → Training → Inference
+├── z__inference_gui.py           # Tkinter GUI for single-image compensation
+├── inference_core.py             # Shared inference module
+├── train.py                      # Training script (--config <yaml>)
 ├── FM_TEST.py                    # Farnsworth-Munsell 100 Hue Test (PyQt5)
-├── get_profile_feats.py          # Estrazione profilo CVD dal FM100
-├── config_generator.py           # Generazione configurazioni YAML
+├── get_profile_feats.py          # CVD profile extraction from FM100
+├── config_generator.py           # YAML configuration generation
 │
-├── CVDCompensationModelAdaIN.py  # Modello principale
-├── PLCFEncoderCVD.py             # Encoder ConvNeXt-Tiny + CVD-AdaIN
-├── PLCFDecoderCVD.py             # Decoder PLCF + CVD-AdaIN
-├── cvd_adain_modules.py          # Moduli CVD-AdaIN
+├── CVDCompensationModelAdaIN.py  # Main model
+├── PLCFEncoderCVD.py             # ConvNeXt-Tiny encoder + CVD-AdaIN
+├── PLCFDecoderCVD.py             # PLCF decoder + CVD-AdaIN
+├── cvd_adain_modules.py          # CVD-AdaIN modules
 │
 ├── losses.py                     # CVDLoss (MSE a*b* + MS-SSIM)
 ├── metrics.py                    # SSIM, PSNR
 ├── delta_e_ciede2000_torch.py    # CIEDE2000 in PyTorch
 ├── color_space_utils.py          # RGB ↔ YCbCr ↔ Lab
 ├── cvd_dataset_loader.py         # PyTorch Dataset
-├── cvd_simulator.py              # Simulazione CVD (Machado 2009)
-├── cvd_shared_cache.py           # Cache matrici Machado
-├── cvd_cache_optimizer.py        # Cache profili JSON
-├── cvd_constants.py              # Costanti condivise
-├── teacher_farup_full.py         # Algoritmo Teacher (CPU)
-├── teacher_farup_gpu.py          # Algoritmo Teacher (GPU)
-├── mapping_x_to_T.py             # Mapping clinico (θ,C,S) → tipo CVD
-├── train_utility.py              # Utilità di training
-├── simple_logger.py              # Logger CSV + plot
-├── precision_utils.py            # Rilevamento precisione CUDA
+├── cvd_simulator.py              # CVD simulation (Machado 2009)
+├── cvd_shared_cache.py           # Machado matrices cache
+├── cvd_cache_optimizer.py        # JSON profile cache
+├── cvd_constants.py              # Shared constants
+├── teacher_farup_full.py         # Teacher algorithm (CPU)
+├── teacher_farup_gpu.py          # Teacher algorithm (GPU)
+├── mapping_x_to_T.py             # Clinical mapping (θ,C,S) → CVD type
+├── train_utility.py              # Training utilities
+├── simple_logger.py              # CSV logger + plots
+├── precision_utils.py            # CUDA precision detection
 │
-├── configs/                      # Configurazioni YAML
-├── CVD_dataset_generator/        # Pipeline generazione dataset
-├── results/                      # Best checkpoint + calibrazione (Git LFS)
+├── configs/                      # YAML configurations
+├── CVD_dataset_generator/        # Dataset generation pipeline
+├── results/                      # Best checkpoint + calibration (Git LFS)
 ├── variational-anisotropic-gradient-domain-main/
-│                                 # Dipendenza esterna (GPL v3) per Teacher Farup
-├── ARCHITECTURE_OPTIONS.md       # Opzioni architetturali disponibili (documentazione)
+│                                 # External dependency (GPL v3) for Teacher Farup
+├── ARCHITECTURE_OPTIONS.md       # Available architectural options (documentation)
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Installazione
+## Installation
 
-### Prerequisiti
+### Prerequisites
 
 - Python 3.10+
-- CUDA 12.x con GPU NVIDIA
-- ~200 MB di spazio disco per il checkpoint (via Git LFS)
+- CUDA 12.x with NVIDIA GPU
+- ~200 MB disk space for the checkpoint (via Git LFS)
 
 ### Setup
 
 ```bash
-# 1. Creare ambiente conda
+# 1. Create conda environment
 conda create -n cvd python=3.11 -y
 conda activate cvd
 
-# 2. Installare PyTorch con CUDA 12.8
+# 2. Install PyTorch with CUDA 12.8
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 
-# 3. Installare dipendenze
+# 3. Install dependencies
 pip install -r requirements.txt
 ```
 
-### Dipendenze principali
+### Key Dependencies
 
-| Pacchetto | Versione di rif. | Uso |
-|-----------|-----------------|-----|
-| `torch` | 2.7.0+cu128 | Framework deep learning |
-| `torchvision` | 0.22.0+cu128 | Backbone ConvNeXt-Tiny pretrained |
+| Package | Ref. version | Usage |
+|---------|-------------|-------|
+| `torch` | 2.7.0+cu128 | Deep learning framework |
+| `torchvision` | 0.22.0+cu128 | ConvNeXt-Tiny pretrained backbone |
 | `timm` | 1.0.19 | Model registry |
-| `numpy` | 2.3.2 | Array numerici |
-| `colour-science` | 0.4+ | Matrici Machado 2009 |
-| `pytorch-msssim` | 1.0+ | MS-SSIM nella loss |
+| `numpy` | 2.3.2 | Numerical arrays |
+| `colour-science` | 0.4+ | Machado 2009 matrices |
+| `pytorch-msssim` | 1.0+ | MS-SSIM in loss |
 | `torchmetrics` | 1.0+ | SSIM / PSNR |
-| `scipy` | 1.16.1 | Solver variazionale (solo dataset generation) |
-| `matplotlib` | 3.9.1 | Plot |
-| `PyQt5` | 5.15+ | _Opzionale_ — GUI FM100 Test |
+| `scipy` | 1.16.1 | Variational solver (dataset generation only) |
+| `matplotlib` | 3.9.1 | Plotting |
+| `PyQt5` | 5.15+ | _Optional_ — FM100 Test GUI |
 
 ---
 
-## Generazione Dataset
+## Dataset Generation
 
-Il dataset è generato compensando immagini di **Places365** con il Teacher Farup per profili CVD simulati.
+The dataset is generated by compensating **Places365** images with the Teacher Farup for simulated CVD profiles.
 
 ```bash
 python z__pipeline.py --dataset
 ```
 
-Per ogni immagine sorgente e profilo CVD generato casualmente:
-1. Simula il CVD sull'immagine (Machado 2009)
-2. Applica l'algoritmo variazionale di Farup per la compensazione ottimale
-3. Salva la coppia (originale, compensata) con metadati del profilo CVD in JSON
+For each source image and randomly generated CVD profile:
+1. Simulates CVD on the image (Machado 2009)
+2. Applies Farup's variational algorithm for optimal compensation
+3. Saves the (original, compensated) pair with CVD profile metadata in JSON
 
-Dataset risultante: **94.321 immagini** di training, **20.048** di validazione.
+Resulting dataset: **94,321 training images**, **20,048 validation images**.
 
-> **Nota:** Il dataset pre-generato non è incluso nel repository perché supera i 10 GB.
-> Per richiedere il dataset, aprire una [Issue](https://github.com/googlielmo93/cvdadan-personalized-color-compensation/issues) su questo repository.
+> **Note:** The pre-generated dataset is not included in the repository as it exceeds 10 GB.
+> To request the dataset, open an [Issue](https://github.com/googlielmo93/cvdadan-personalized-color-compensation/issues) on this repository.
 
 ---
 
@@ -251,50 +253,50 @@ Dataset risultante: **94.321 immagini** di training, **20.048** di validazione.
 
 ### Hardware
 
-| | Specifica |
-|--|-----------|
+| | Specification |
+|--|---------------|
 | **GPU** | NVIDIA GeForce RTX 3090 (24 GB VRAM) |
-| **Precisione** | bfloat16 (mixed precision) |
+| **Precision** | bfloat16 (mixed precision) |
 
-### Avvio
+### Launch
 
 ```bash
-# Menu interattivo
+# Interactive menu
 python z__pipeline.py --training
 
-# Diretto
+# Direct
 python train.py --config "configs/grid_cvd_20251212_215310/config_01_no_delta_e.yaml"
 ```
 
-Il training usa: auto-resume da checkpoint, early stopping (patience 20 su Val ΔE00, con soglia ΔE00 < 5.0 e quality gates su SSIM/PSNR), ReduceLROnPlateau (factor 0.7, patience 15, min_lr 5×10⁻⁶), calibrazione automatica delle costanti di loss sui primi ~200 campioni.
+Training features: auto-resume from checkpoint, early stopping (patience 20 on Val ΔE00, with ΔE00 < 5.0 threshold and quality gates on SSIM/PSNR), ReduceLROnPlateau (factor 0.7, patience 15, min_lr 5×10⁻⁶), automatic calibration of loss constants on the first ~200 samples.
 
-### Risultati
+### Results
 
-| Metrica | Valore |
-|---------|--------|
-| **Epoche totali** | 187 (early stopping) |
-| **Epoca migliore** | 185 |
+| Metric | Value |
+|--------|-------|
+| **Total epochs** | 187 (early stopping) |
+| **Best epoch** | 185 |
 | **Val ΔE00** | **1.27** (CIEDE2000) |
 | **Val SSIM** | **0.989** |
 | **Val PSNR** | **~37.2 dB** |
 
-Il checkpoint (epoch 185, 173.1 MB) è incluso nel repository via Git LFS.
+The checkpoint (epoch 185, 173.1 MB) is included in the repository via Git LFS.
 
 ---
 
-## Inferenza
+## Inference
 
-### GUI (raccomandato)
+### GUI (recommended)
 
 ```bash
 python z__inference_gui.py
 ```
 
-Interfaccia Tkinter a 4 tab:
-1. **Profilo CVD** — Inserimento manuale di θ, C, S oppure caricamento JSON da FM_TEST.py
-2. **Immagine** — Selezione immagine
-3. **Compensazione** — Selezione checkpoint ed elaborazione
-4. **Risultato** — Confronto side-by-side con salvataggio
+Tkinter interface with 4 tabs:
+1. **CVD Profile** — Manual input of θ, C, S or JSON loading from FM_TEST.py
+2. **Image** — Image selection
+3. **Compensation** — Checkpoint selection and processing
+4. **Result** — Side-by-side comparison with save option
 
 ### CLI
 
@@ -302,26 +304,26 @@ Interfaccia Tkinter a 4 tab:
 python z__pipeline.py --inference
 ```
 
-### Profilazione utente
+### User Profiling
 
-Per ottenere il profilo CVD di un utente reale:
+To obtain a real user's CVD profile:
 
 ```bash
 python FM_TEST.py
 ```
 
-Richiede PyQt5. Produce un file JSON con `[θ, C, S]` utilizzabile direttamente nella GUI di inferenza.
+Requires PyQt5. Produces a JSON file with `[θ, C, S]` directly usable in the inference GUI.
 
 ---
 
-## Risultati
+## Results
 
-Il modello raggiunge una **ΔE00 media di 1.27** sulla validazione (soglia di percettibilità umana ≈ 1.0), con SSIM di 0.989 e PSNR di ~37.2 dB.
+The model achieves a **mean ΔE00 of 1.27** on validation (human perceptibility threshold ≈ 1.0), with SSIM of 0.989 and PSNR of ~37.2 dB.
 
-La compensazione preserva **la luma Y'** (BT.601, copiata identica dall'input) e modifica solo la crominanza (Cb, Cr), limitando variazioni di brightness nel dominio immagine.
+Compensation preserves **Y' luma** (BT.601, copied identically from input) and modifies only chrominance (Cb, Cr), limiting brightness variations in the image domain.
 
 ---
 
-## Licenza
+## License
 
-La cartella `variational-anisotropic-gradient-domain-main/` è distribuita sotto licenza **GPL v3** (vedi relativo LICENSE). Necessaria solo per la generazione del dataset (Teacher Farup), non per l'inferenza.
+The `variational-anisotropic-gradient-domain-main/` folder is distributed under **GPL v3** license (see its LICENSE file). It is required only for dataset generation (Teacher Farup), not for inference.
