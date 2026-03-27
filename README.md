@@ -1,5 +1,10 @@
 # CVD Chromatic Compensation
 
+![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.x-ee4c2c?logo=pytorch&logoColor=white)
+![CUDA](https://img.shields.io/badge/CUDA-12.x-76b900?logo=nvidia&logoColor=white)
+![License](https://img.shields.io/badge/License-GPLv3-blue)
+
 Sistema di compensazione cromatica in tempo reale per utenti con **deficit della visione dei colori** (CVD — Color Vision Deficiency), basato su deep learning con condizionamento adattivo (CVD-AdaIN).
 
 > **Tesi di Laurea Magistrale in Ingegneria Informatica** — Università degli Studi di Palermo
@@ -51,6 +56,11 @@ La severità varia da lieve (anomalia) a totale (anopia). La simulazione del CVD
 ### Profilo CVD: vettore `[θ, C, S]`
 
 Il profilo individuale viene estratto dal **Farnsworth-Munsell 100 Hue Test** tramite lo scoring quantitativo Vingrys–King-Smith e codificato come:
+
+<p align="center">
+  <img src="assets/fm100_gui.png" alt="Interfaccia GUI del Farnsworth-Munsell 100 Hue Test" width="550">
+</p>
+
 - **θ (theta)** — Angolo dell'asse di confusione nel piano cromatico CIELUV $(u^*,v^*)$ (in gradi). Indica la direzione dominante del pattern di errore: consente di distinguere profili di tipo protan, deutan o tritan
 - **C (Confusion index)** — Indice di confusione: misura l'ampiezza complessiva dell'errore (severità globale)
 - **S (Scatter index)** — Indice di dispersione: misura la selettività e la direzionalità del pattern di errore
@@ -69,6 +79,10 @@ Il gold standard per la compensazione offline utilizza l'algoritmo di Farup, che
 ## Architettura del Modello
 
 > Per tutte le opzioni architetturali disponibili ma non utilizzate, vedere [ARCHITECTURE_OPTIONS.md](ARCHITECTURE_OPTIONS.md).
+
+<p align="center">
+  <img src="assets/architecture.png" alt="Architettura completa del modello" width="750">
+</p>
 
 ### `CVDCompensationModelAdaIN`
 
@@ -100,6 +114,10 @@ Image [B, 3, 256, 256]   +   CVD Profile [B, 3]
 
 **CVDAdaIN** (CVD Adaptive Normalization): il profilo CVD 3D viene proiettato da un Linear layer in parametri `(γ, β)` che modulano le normalizzazioni nell'encoder (17 punti, tipo LayerNorm) e nel decoder (9 punti, tipo Instance Norm). La proiezione è inizializzata near-identity (γ≈1, β≈0) così che il condizionamento emerga gradualmente durante il training. La rete si adatta dinamicamente al tipo e alla severità del deficit di ciascun utente.
 
+<p align="center">
+  <img src="assets/decoder_detail.png" alt="Architettura dettagliata del decoder PLCF" width="650">
+</p>
+
 **Y'-Preserving**: il decoder produce solo 2 canali (ΔCb, ΔCr). La luma Y' (BT.601) dell'input viene copiata immutata nell'output, limitando variazioni di brightness nel dominio immagine. Nota: Y' è una grandezza operativa (luma), distinta dalla luminanza colorimetrica CIE Y e dalla lightness percettiva L*.
 
 ### Normalizzazione del profilo CVD
@@ -114,7 +132,7 @@ Le statistiche sono salvate nel checkpoint e applicate automaticamente in infere
 
 Loss a 2 componenti con normalizzazione statica tramite costanti di calibrazione:
 
-$$\mathcal{L} = 0.7 \cdot \frac{\text{MSE}_{a^*b^*}}{M_{\text{mse}}} + 0.3 \cdot \frac{(1 - \text{MS-SSIM}_{\text{RGB}})}{M_{\text{ssim}}}$$
+$$\mathcal{L} = 0.7 \cdot \frac{\text{MSE}_{a^{*}b^{*}}}{M_{\text{mse}}} + 0.3 \cdot \frac{(1 - \text{MS-SSIM}_{\text{RGB}})}{M_{\text{ssim}}}$$
 
 | Componente | Spazio | Peso | Descrizione |
 |------------|--------|------|-------------|
